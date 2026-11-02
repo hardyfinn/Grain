@@ -1,0 +1,23 @@
+{
+  "slug": "Pollen",
+  "name": "Pollen",
+  "version": "2.0.0",
+  "license": "GPL-3.0-or-later",
+  "brand": "Haer",
+  "author": "Haer",
+  "authorEmail": "",
+  "authorUrl": "",
+  "pluginUrl": "",
+  "manualUrl": "",
+  "sourceUrl": "https://github.com/hardyfinn/grain",
+  "donateUrl": "",
+  "changelogUrl": "",
+  "modules": [
+    {
+      "slug": "Pollen",
+      "name": "Pollen",
+      "description": "Stereo granular sampler with 4 Sounds, 2 morphing Scenes, X/Y/Z/RAND modulation, recording and a live buffer. A display shows the grains as they fire",
+      "tags": ["Sampler", "Granular", "Recording", "Reverb"]
+    }
+  ]
+}

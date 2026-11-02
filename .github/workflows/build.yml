@@ -1,0 +1,43 @@
+# Builds the plugin for Apple Silicon Macs on every push.
+# The finished .vcvplugin file appears under the run's "Artifacts", and on the
+# "latest" release page of this repository.
+name: Build plugin
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  RACK_SDK_VERSION: 2.6.4
+
+jobs:
+  build-mac-arm64:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: brew list zstd >/dev/null 2>&1 || brew install zstd
+      - name: Download Rack SDK
+        run: |
+          curl -fsSL -o sdk.zip "https://vcvrack.com/downloads/Rack-SDK-${RACK_SDK_VERSION}-mac-arm64.zip"
+          unzip -q sdk.zip -d "$RUNNER_TEMP"
+      - name: Test the engine
+        run: |
+          c++ -std=c++11 -O2 -o test/engine_test test/engine_test.cpp && test/engine_test
+      - name: Build
+        run: make dist RACK_DIR="$RUNNER_TEMP/Rack-SDK" -j3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pollen-mac-arm64
+          path: dist/*.vcvplugin
+      - name: Publish to the "latest" release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view latest >/dev/null 2>&1 || gh release create latest --title "Latest build" --notes "Built automatically from main."
+          gh release upload latest dist/*.vcvplugin --clobber
