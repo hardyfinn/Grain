@@ -1,4 +1,4 @@
-// Engine tests for Pollen. Build and run:
+// Granulator tests for Pollen. Build and run:
 //   c++ -std=c++11 -O2 -o test/engine_test test/engine_test.cpp && test/engine_test
 #include "../src/GrainEngine.hpp"
 #include <cstdio>
@@ -9,13 +9,13 @@ using namespace pl;
 static int fails = 0;
 #define CHECK(c, msg) do { if (!(c)) { std::printf("FAIL: %s\n", msg); fails++; } else std::printf("ok: %s\n", msg); } while (0)
 
-static void loadSine(Engine& e, int s, float hz, float secs) {
+static void loadSine(Granulator& e, int s, float hz, float secs) {
 	std::vector<float> L(secs * BUF_RATE), R(secs * BUF_RATE);
 	for (size_t i = 0; i < L.size(); i++) L[i] = R[i] = 0.5f * std::sin(2 * 3.14159265f * hz * i / BUF_RATE);
 	e.setSound(s, L, R, "sine");
 }
 
-static float run(Engine& e, int n, bool playing, float in = 0.f, int* grains = nullptr, bool* bad = nullptr) {
+static float run(Granulator& e, int n, bool playing, float in = 0.f, int* grains = nullptr, bool* bad = nullptr) {
 	float peak = 0.f;
 	for (int i = 0; i < n; i++) {
 		e.process(in, in, playing);
@@ -27,7 +27,7 @@ static float run(Engine& e, int n, bool playing, float in = 0.f, int* grains = n
 }
 
 int main() {
-	static Engine e;   // large: keep it off the stack
+	static Granulator e;   // large: keep it off the stack
 	e.setSampleRate(44100.f);
 
 	// silence when empty
@@ -116,7 +116,7 @@ int main() {
 
 	// every shape, reverse, ping-pong, tone, links, extreme values: no NaN
 	e.selected = 0;
-	Scene& sc = e.sound[0].scene[0];
+	GrainScene& sc = e.sound[0].scene[0];
 	bad = false;
 	for (int sh = 0; sh < NUM_SHAPES; sh++) {
 		sc.p[P_SHAPE] = sh;

@@ -14,6 +14,10 @@
 #include <chrono>
 
 using namespace pl;
+// These names also exist in Rack; make sure ours are the ones used here.
+using pl::GrainScene;
+using pl::Sound;
+using pl::Granulator;
 
 struct Pollen;
 
@@ -55,7 +59,7 @@ struct Pollen : Module {
 		LIGHTS_LEN
 	};
 
-	Engine eng;
+	Granulator eng;
 	int modEdit = -1;                 // -1 = knobs set values, 0..3 = knobs set X/Y/Z/RAND depth
 	float lastKnob[NUM_P];
 	bool knobsDirty = true;
@@ -80,12 +84,12 @@ struct Pollen : Module {
 
 	Pollen();
 
-	Scene& editedScene() { return eng.sound[eng.selected].scene[eng.editScene]; }
+	GrainScene& editedScene() { return eng.sound[eng.selected].scene[eng.editScene]; }
 
 	// Knobs show either the edited Scene's values or, in a MOD edit mode,
 	// that source's depths (-100%..+100%, noon = none).
 	float knobFromState(int p) {
-		Scene& sc = editedScene();
+		GrainScene& sc = editedScene();
 		if (modEdit < 0) return sc.p[p];
 		return P_MIN[p] + (sc.mod[modEdit][p] + 1.f) * 0.5f * (P_MAX[p] - P_MIN[p]);
 	}
@@ -100,7 +104,7 @@ struct Pollen : Module {
 	}
 	void readKnobs() {
 		if (knobsDirty) loadKnobs();
-		Scene& sc = editedScene();
+		GrainScene& sc = editedScene();
 		for (int p = 0; p < NUM_P; p++) {
 			float v = params[START_PARAM + p].getValue();
 			if (v == lastKnob[p]) continue;
@@ -274,7 +278,7 @@ struct Pollen : Module {
 			lights[REVERSE_LIGHT].setBrightness(editedScene().reverse ? 1.f : 0.f);
 			lights[LINK_RS_LIGHT].setBrightness(eng.sound[eng.selected].linkRateSize ? 1.f : 0.f);
 			lights[LINK_SP_LIGHT].setBrightness(eng.sound[eng.selected].linkSizePitch ? 1.f : 0.f);
-			Scene& sc = editedScene();
+			GrainScene& sc = editedScene();
 			for (int i = 0; i < 4; i++) {
 				bool any = false;
 				for (int p = 0; p < NUM_P; p++) if (sc.mod[i][p] != 0.f) any = true;
@@ -366,7 +370,7 @@ struct Pollen : Module {
 			json_object_set_new(js, "quantMask", json_integer(S.quantMask));
 			json_t* scenes = json_array();
 			for (int c = 0; c < 2; c++) {
-				Scene& sc = S.scene[c];
+				GrainScene& sc = S.scene[c];
 				json_t* jc = json_object();
 				json_t* jp = json_array();
 				for (int p = 0; p < NUM_P; p++) json_array_append_new(jp, json_real(sc.p[p]));
@@ -416,7 +420,7 @@ struct Pollen : Module {
 			json_t* scenes = json_object_get(js, "scenes");
 			for (int c = 0; c < 2 && scenes && c < (int) json_array_size(scenes); c++) {
 				json_t* jc = json_array_get(scenes, c);
-				Scene& sc = S.scene[c];
+				GrainScene& sc = S.scene[c];
 				json_t* jp = json_object_get(jc, "values");
 				for (int p = 0; p < NUM_P && jp && p < (int) json_array_size(jp); p++)
 					sc.p[p] = clamp((float) json_number_value(json_array_get(jp, p)), P_MIN[p], P_MAX[p]);
@@ -443,7 +447,7 @@ struct PollenQuantity : ParamQuantity {
 			if (std::fabs(d) < 0.02f) return string::f("%s depth: none", SRC[m->modEdit]);
 			return string::f("%s depth: %+.0f%%", SRC[m->modEdit], d * 100.f);
 		}
-		Engine* e = m ? &m->eng : nullptr;
+		Granulator* e = m ? &m->eng : nullptr;
 		int s = e ? e->selected : 0;
 		bool synced = e && e->syncOn && e->syncConnected && e->clockValid;
 		switch (p) {
@@ -570,7 +574,7 @@ struct PollenDisplay : Widget {
 		nvgFillColor(vg, c);
 		nvgFill(vg);
 	}
-	void box(NVGcontext* vg, float x, float y, float w, float h) {
+	void panel(NVGcontext* vg, float x, float y, float w, float h) {
 		nvgBeginPath(vg);
 		nvgRoundedRect(vg, x, y, w, h, 2.f);
 		nvgFillColor(vg, C_BOX);
@@ -608,7 +612,7 @@ struct PollenDisplay : Widget {
 			return;
 		}
 		Pollen* m = module;
-		Engine& e = m->eng;
+		Granulator& e = m->eng;
 		int s = e.selected;
 		Sound& S = e.sound[s];
 		int len = e.soundLength(s);
@@ -629,7 +633,7 @@ struct PollenDisplay : Widget {
 
 		// ---------- view 1: the audio, the window and the grains ----------
 		float wx = pad, wy = pad + fs + mm2px(1.0f), ww = W - 2 * pad, wh = mm2px(17.5f);
-		box(vg, wx, wy, ww, wh);
+		panel(vg, wx, wy, ww, wh);
 		if (len > 0) {
 			// waveform
 			int cols = (int) ww;
@@ -663,7 +667,7 @@ struct PollenDisplay : Widget {
 			}
 			// grains: a blip at each grain's read position, height = its envelope
 			for (int v = 0; v < NUM_VOICES; v++) {
-				const Engine::Voice& vo = e.voices[v];
+				const Granulator::Voice& vo = e.voices[v];
 				if (!vo.active || vo.snd != s) continue;
 				double p = vo.pos;
 				if (vo.live) p = std::fmod(p - (head - len) + 4.0 * MAX_FRAMES, (double) MAX_FRAMES);
@@ -696,7 +700,7 @@ struct PollenDisplay : Widget {
 		float rx = mx + mw + mm2px(1.2f), rw = W - pad - rx;
 
 		// ---------- view 2: grain envelope ----------
-		box(vg, ex, by, ew, bh);
+		panel(vg, ex, by, ew, bh);
 		{
 			int sa = clamp((int) std::lround(S.scene[0].p[P_SHAPE]), 0, NUM_SHAPES - 1);
 			int sb = clamp((int) std::lround(S.scene[1].p[P_SHAPE]), 0, NUM_SHAPES - 1);
@@ -720,7 +724,7 @@ struct PollenDisplay : Widget {
 			for (int v = 0; v < NUM_VOICES; v++)
 				if (e.voices[v].active && e.voices[v].age < minAge) { minAge = e.voices[v].age; newest = v; }
 			if (newest >= 0) {
-				const Engine::Voice& vo = e.voices[newest];
+				const Granulator::Voice& vo = e.voices[newest];
 				float x = (float) vo.age / vo.dur;
 				float y = std::max(-0.25f, shapeEnv(vo.shape, x));
 				nvgBeginPath(vg);
@@ -737,7 +741,7 @@ struct PollenDisplay : Widget {
 		}
 
 		// ---------- view 3: morph between Scene A and Scene B ----------
-		box(vg, mx, by, mw, bh);
+		panel(vg, mx, by, mw, bh);
 		{
 			text(vg, mx + mm2px(1.f), by + mm2px(0.6f), "A", C_A, NVG_ALIGN_LEFT | NVG_ALIGN_TOP, fsS);
 			text(vg, mx + mw - mm2px(1.f), by + mm2px(0.6f), "B", C_B, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP, fsS);
@@ -769,7 +773,7 @@ struct PollenDisplay : Widget {
 		}
 
 		// ---------- view 4: plain-words readout ----------
-		box(vg, rx, by, rw, bh);
+		panel(vg, rx, by, rw, bh);
 		{
 			float lx = rx + mm2px(1.2f), ly = by + mm2px(0.7f), lh = mm2px(2.45f);
 			int row = 0;
@@ -895,7 +899,7 @@ struct PollenWidget : ModuleWidget {
 
 	void appendContextMenu(Menu* menu) override {
 		Pollen* m = getModule<Pollen>();
-		Engine* e = &m->eng;
+		Granulator* e = &m->eng;
 		int s = e->selected;
 
 		menu->addChild(new MenuSeparator);

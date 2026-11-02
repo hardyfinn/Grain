@@ -93,7 +93,7 @@ inline float shapeEnv(int shape, float x) {
 	}
 }
 
-struct Scene {
+struct GrainScene {
 	float p[NUM_P];
 	float mod[NUM_SRC][NUM_P];  // depth -1..1, 1 = the parameter's full range
 	bool reverse = false;
@@ -102,14 +102,14 @@ struct Scene {
 		std::memset(mod, 0, sizeof(mod));
 		reverse = false;
 	}
-	Scene() { reset(); }
+	GrainScene() { reset(); }
 };
 
 struct Sound {
 	std::vector<float> L, R;    // capacity MAX_FRAMES, never reallocated while running
 	int length = 0;
 	std::vector<float> peaks;   // per PEAK_BLOCK frames, for the display
-	Scene scene[2];
+	GrainScene scene[2];
 	bool live = false;          // grains come from the live input buffer
 	bool pingPong = false;      // alternate forward / reverse grains
 	bool linkRateSize = false;
@@ -188,7 +188,7 @@ struct Reverb {
 	}
 };
 
-struct Engine {
+struct Granulator {
 	Sound sound[NUM_SOUNDS];
 	float sampleRate = 48000.f;
 	std::mt19937 rng{12345};
@@ -260,7 +260,7 @@ struct Engine {
 	float effective[NUM_P];     // morphed + CV-modulated values (without RAND), for the display
 	int activeVoices = 0;
 
-	Engine() {
+	Granulator() {
 		liveL.assign(MAX_FRAMES, 0.f);
 		liveR.assign(MAX_FRAMES, 0.f);
 		livePeaks.assign(NUM_PEAKS, 0.f);
@@ -284,8 +284,8 @@ struct Engine {
 
 	// morphed value of a parameter plus CV modulation; r = this grain's random value
 	float value(int s, int p, float r, bool withRand) const {
-		const Scene& A = sound[s].scene[0];
-		const Scene& B = sound[s].scene[1];
+		const GrainScene& A = sound[s].scene[0];
+		const GrainScene& B = sound[s].scene[1];
 		float m = morph;
 		float v = A.p[p] + (B.p[p] - A.p[p]) * m;
 		float range = P_MAX[p] - P_MIN[p];
@@ -381,7 +381,7 @@ struct Engine {
 
 		// SHAPE and REVERSE don't blend: each grain picks Scene A's or B's by chance
 		bool useB = rnd01() < morph;
-		const Scene& sc = S.scene[useB ? 1 : 0];
+		const GrainScene& sc = S.scene[useB ? 1 : 0];
 		int shape = (int) std::lround(sc.p[P_SHAPE]);
 		float shapeMod = 0.f;
 		for (int src = 0; src < 3; src++) shapeMod += (S.scene[0].mod[src][P_SHAPE] * (1 - morph) + S.scene[1].mod[src][P_SHAPE] * morph) * cv[src] * 6.f;
