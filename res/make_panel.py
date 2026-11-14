@@ -186,3 +186,9 @@ svg = (
 with open(os.path.join(HERE, "Pollen.svg"), "w") as fh:
     fh.write(svg)
 print("wrote Pollen.svg")
+
+# --- Haer maker logo (res/haer_logo.py), placed clear of the jacks and rail artwork
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import haer_logo
+haer_logo.add_to_file(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "Pollen.svg"), x=91.39, y=126.0, cap=3.0, bg='#2B3524', knock=(124.05, 125.75))
